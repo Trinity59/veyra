@@ -1,22 +1,24 @@
 from __future__ import annotations
 
-from datetime import datetime
-
-from sqlalchemy import DateTime, Float, String
+from sqlalchemy import Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.base import Base
 
 
-class Sale(Base):
-    __tablename__ = "sales"
+class SaleItem(Base):
+    __tablename__ = "sale_items"
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    invoice_number: Mapped[str] = mapped_column(String(80), unique=True, nullable=False, index=True)
-    sale_date: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-    subtotal: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
-    vat: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
-    discount: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
-    total: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    sale_id: Mapped[int] = mapped_column(ForeignKey("sales.id", ondelete="CASCADE"), nullable=False)
+    product_id: Mapped[int | None] = mapped_column(ForeignKey("products.id"), nullable=True)
+    product_code_snapshot: Mapped[str] = mapped_column(String(80), nullable=False)
+    product_name_snapshot: Mapped[str] = mapped_column(String(200), nullable=False)
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    unit_price: Mapped[float] = mapped_column(Float, nullable=False)
+    cost_price_snapshot: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    vat_amount: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    line_total: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
 
-    items: Mapped[list["SaleItem"]] = relationship(back_populates="sale")
+    sale: Mapped["Sale"] = relationship(back_populates="items")
+    product: Mapped["Product | None"] = relationship(back_populates="sale_items")
