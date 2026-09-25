@@ -1,16 +1,12 @@
 from __future__ import annotations
 
 from datetime import datetime
-
 from sqlalchemy import Boolean, DateTime, Float, String
 from sqlalchemy.orm import Mapped, mapped_column
-
 from db.base import Base
-
 
 class Settings(Base):
     __tablename__ = "settings"
-
     id: Mapped[int] = mapped_column(primary_key=True)
     business_name: Mapped[str] = mapped_column(String(150), default="VEYRA Shop", nullable=False)
     owner_name: Mapped[str | None] = mapped_column(String(150))
