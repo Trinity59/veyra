@@ -14,11 +14,10 @@ class SupabaseConfigError(RuntimeError):
 
 
 class SupabaseConnector:
-    """Opt-in JSON upload. SQLite remains the authoritative offline data store.
+    """Opt-in JSON event upload; local SQLite remains authoritative.
 
-    The secret/service-role key is deliberately not accepted or stored here. It must
-    never be shipped in a Windows desktop client. Use only the publishable key and
-    enforce table policies/RLS in Supabase.
+    The connector accepts only the publishable key. Never use a secret/service-role
+    key in this desktop application. Configure RLS in Supabase before enabling it.
     """
 
     def __init__(self, url: str | None = None, publishable_key: str | None = None, table: str = "veyra_events"):
@@ -30,9 +29,11 @@ class SupabaseConnector:
     def enabled(self) -> bool:
         return bool(self.url and self.publishable_key)
 
-    async def upload_json(self, payload: Mapping[str, Any]) -> dict[str, Any]:
+    async def upload_json(self, payload: Mapping[str, Any], event_type: str = "event") -> dict[str, Any]:
         if not self.enabled:
             raise SupabaseConfigError("SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY are required.")
+        if not isinstance(payload, Mapping):
+            raise TypeError("payload must be a mapping.")
         endpoint = f"{self.url}/rest/v1/{self.table}"
         headers = {
             "apikey": self.publishable_key,
@@ -40,16 +41,17 @@ class SupabaseConnector:
             "Content-Type": "application/json",
             "Prefer": "return=minimal",
         }
+        row = {"event_type": event_type, "payload": dict(payload)}
         async with httpx.AsyncClient(timeout=15) as client:
-            response = await client.post(endpoint, json=dict(payload), headers=headers)
+            response = await client.post(endpoint, json=row, headers=headers)
             response.raise_for_status()
             return {"status_code": response.status_code}
 
-    def upload_json_background(self, payload: Mapping[str, Any]):
+    def upload_json_background(self, payload: Mapping[str, Any], event_type: str = "event"):
         if not self.enabled:
             raise SupabaseConfigError("Supabase sync is disabled until URL and publishable key are configured.")
-        return _EXECUTOR.submit(self._upload_in_worker, dict(payload))
+        return _EXECUTOR.submit(self._upload_in_worker, dict(payload), event_type)
 
-    def _upload_in_worker(self, payload: dict[str, Any]) -> dict[str, Any]:
+    def _upload_in_worker(self, payload: dict[str, Any], event_type: str) -> dict[str, Any]:
         import asyncio
-        return asyncio.run(self.upload_json(payload))
+        return asyncio.run(self.upload_json(payload, event_type))
